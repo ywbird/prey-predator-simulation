@@ -2,10 +2,20 @@ const container = document.getElementById('canvas-container')
 const debug = document.getElementById('debug')
 const resetBtn = document.getElementById('reset')
 const pauseBtn = document.getElementById('pause')
+const exportBtn = document.getElementById('export')
+const importBtn = document.getElementById('import')
+const resetLogBtn = document.getElementById('reset-log')
+const settingsTextarea = document.getElementById('settings') as HTMLTextAreaElement
+const logTextarea = document.getElementById('log') as HTMLTextAreaElement
 const options = document.getElementById('options')
 const modeSelection = document.getElementById('mode') as HTMLSelectElement
 
 const pi = Math.PI
+
+enum types {
+	prey = 'prey',
+	predator = 'predator',
+}
 
 class Renderer {
 	width: number
@@ -105,14 +115,14 @@ class Entity {
 	direction: number
 	attack: number
 	attackCooldown: number
-	type: 'prey' | 'predator'
+	type: types
 	highlight: boolean
 	touch: string
 	alive: boolean
 	uuid: string
 	props: { [key: string]: any }
 
-	constructor(x: number, y: number, direction: number, demage: number, type: 'prey' | 'predator') {
+	constructor(x: number, y: number, direction: number, demage: number, type: types) {
 		this.x = x
 		this.y = y
 		this.direction = direction
@@ -130,11 +140,11 @@ class Entity {
 		ctx.beginPath()
 		ctx.lineWidth = 1.5
 		switch (this.type) {
-			case 'prey': {
+			case types.prey: {
 				ctx.strokeStyle = 'blue'
 				break
 			}
-			case 'predator': {
+			case types.predator: {
 				ctx.strokeStyle = 'red'
 				break
 			}
@@ -160,12 +170,6 @@ class Entity {
 		ctx.stroke()
 		ctx.closePath()
 
-		// ctx.beginPath()
-		// ctx.strokeStyle = 'powderblue'
-		// ctx.arc(this.x, this.y, opts.ENTITY_RECOGNITION_RANGE, 0, 2 * pi)
-		// ctx.stroke()
-		// ctx.closePath()
-
 		ctx.beginPath()
 		ctx.strokeStyle = 'red'
 		ctx.moveTo(this.x, this.y)
@@ -179,7 +183,7 @@ class Entity {
 		ctx.fill()
 		ctx.closePath()
 
-		if (this.type === 'predator' && this.attackCooldown === 0) {
+		if (this.type === types.predator && this.attackCooldown === 0) {
 			ctx.beginPath()
 			ctx.strokeStyle = 'red'
 			ctx.arc(this.x, this.y, opts.ENTITY_SIZE * 1.5, 0, 2 * pi)
@@ -187,7 +191,7 @@ class Entity {
 			ctx.closePath()
 		}
 
-		if (this.type === 'prey' && this.props.leader) {
+		if (this.type === types.prey && this.props.leader) {
 			ctx.beginPath()
 			ctx.strokeStyle = 'cyan'
 			ctx.arc(this.x, this.y, opts.ENTITY_SIZE * 1.5, 0, 2 * pi)
@@ -197,8 +201,8 @@ class Entity {
 
 		ctx.lineWidth = 2
 
-		ctx.strokeStyle = 'red'
-		this.highlight &&
+		if (this.highlight) {
+			ctx.strokeStyle = 'red'
 			polygon(
 				ctx,
 				[
@@ -209,6 +213,12 @@ class Entity {
 				],
 				'stroke'
 			)
+			ctx.beginPath()
+			ctx.strokeStyle = 'powderblue'
+			ctx.arc(this.x, this.y, opts.ENTITY_RECOGNITION_RANGE, 0, 2 * pi)
+			ctx.stroke()
+			ctx.closePath()
+		}
 
 		if (this.touch) {
 			ctx.beginPath()
@@ -242,26 +252,26 @@ class Entity {
 
 		const closestSameTypeEntity = nearSameTypeEntities[0]
 
-		const closestDiffTypeEntityity = nearDiffTypeEntities[0]
+		const closestDiffTypeEntity = nearDiffTypeEntities[0]
 
 		this.touch = ''
 		if (
-			!!closestDiffTypeEntityity &&
-			(closestDiffTypeEntityity.x - this.xBuffer) ** 2 + (closestDiffTypeEntityity.y - this.yBuffer) ** 2 <= (2 * opts.ENTITY_SIZE) ** 2
+			!!closestDiffTypeEntity &&
+			(closestDiffTypeEntity.x - this.xBuffer) ** 2 + (closestDiffTypeEntity.y - this.yBuffer) ** 2 <= (2 * opts.ENTITY_SIZE) ** 2
 		)
-			this.touch = closestDiffTypeEntityity.uuid
+			this.touch = closestDiffTypeEntity.uuid
 
 		// Attack validation
 
 		this.attackCooldown -= delta
 		if (this.attackCooldown < 0) this.attackCooldown = 0
 
-		if (this.touch && closestDiffTypeEntityity.attackCooldown === 0 && this.type === 'prey') {
-			const attackSuccess = nearSameTypeEntities.reduce((p, c) => p + c.attack, 0) > closestDiffTypeEntityity.attack
+		if (this.touch && closestDiffTypeEntity.attackCooldown === 0 && this.type === types.prey) {
+			const attackSuccess = nearSameTypeEntities.reduce((p, c) => p + c.attack, 0) > closestDiffTypeEntity.attack
 
-			closestDiffTypeEntityity.alive = !attackSuccess
+			closestDiffTypeEntity.alive = !attackSuccess
 			this.alive = attackSuccess
-			closestDiffTypeEntityity.attackCooldown = opts.ENTITY_ATTACK_COOLDOWN
+			closestDiffTypeEntity.attackCooldown = opts.ENTITY_ATTACK_COOLDOWN
 		}
 
 		// Separation
@@ -314,17 +324,32 @@ class Entity {
 
 		let target: Entity | null
 		let targetDir: number
-		if (modeSelection.value === 'coop' && sameTypeEntities.length > 1 && this.type === 'prey') target = sameTypeEntities[1]
-		if (modeSelection.value === 'leader' && sameTypeEntities.filter((e) => e.props.leader).length > 1 && this.type === 'prey')
+		if (modeSelection.value === 'coop' && sameTypeEntities.length > 1 && this.type === types.prey) target = sameTypeEntities[1]
+		if (modeSelection.value === 'leader' && sameTypeEntities.filter((e) => e.props.leader).length > 1 && this.type === types.prey)
 			target = sameTypeEntities.filter((e) => e.props.leader)[0]
 
-		if (this.type === 'predator' && diffTypeEntities.length > 0 && this.attackCooldown === 0) target = diffTypeEntities[0]
+		if (this.type === types.predator && diffTypeEntities.length > 0 && this.attackCooldown === 0) target = diffTypeEntities[0]
 
 		if (target) {
 			targetDir = Math.atan2(target.y - this.yBuffer, target.x - this.xBuffer)
 
 			dirBuffer += steer(this.direction, targetDir)
 		}
+
+		// Custom Rule .2 Avoiding
+
+		let avoid: Entity | null
+		let avoidDir: number
+		if (this.type === types.prey && diffTypeEntities.length > 0) {
+			avoid = closestDiffTypeEntity
+		}
+
+		if (avoid) {
+			avoidDir = Math.atan2(this.yBuffer - avoid.y, this.xBuffer - avoid.x)
+
+			dirBuffer += steer(this.direction, avoidDir)
+		}
+
 		// Apply Steer
 
 		if (nearSameTypeEntities.length > 0)
@@ -369,12 +394,12 @@ const keyState = {}
 window.addEventListener('keydown', (e) => (keyState[e.code] = true))
 window.addEventListener('keyup', (e) => (keyState[e.code] = false))
 
-const opts = {
+let opts = {
 	ENTITY_SIZE: 7,
 	ENTITY_RECOGNITION_RANGE: 50,
 	ENTITY_ATTACK_MAX: 100,
 	ENTITY_ATTACK_COOLDOWN: 5,
-	PREY_PERCENTAGE: 70,
+	PREY_PERCENTAGE: 80,
 	ENTITES_COUNT: 100,
 	ENTITY_SPEED: 50,
 	SEPARATION_FACTOR: 1,
@@ -387,31 +412,26 @@ Object.keys(opts).forEach((o) => {
 	const initialValue = opts[o]
 	const tr = document.createElement('tr')
 	const td = document.createElement('td')
-	td.innerText = `${o}(${opts[o]})`
-	const inputTd = document.createElement('td')
+	td.innerText = o
 	const input = document.createElement('input')
-	input.type = 'range'
-	input.setAttribute('max', `${(opts[o] + 1) * 10}`)
-	input.setAttribute('min', '0')
-	input.setAttribute('step', '0.1')
+	input.type = 'number'
+	input.setAttribute('step', '1')
 	input.value = opts[o]
 	const onChange = (e: Event & { target: HTMLInputElement }) => {
 		opts[o] = e.target.value
-		td.innerText = `${o}(${opts[o]})`
 	}
 	input.addEventListener('input', onChange)
+	input.id = o
 	const resetBtnTd = document.createElement('td')
 	const resetBtn = document.createElement('button')
 	resetBtn.addEventListener('click', (e) => {
 		input.value = initialValue
 		opts[o] = initialValue
-		td.innerText = `${o}(${opts[o]})`
 	})
 	resetBtn.innerText = 'reset'
 	resetBtnTd.append(resetBtn)
-	inputTd.append(input)
 	tr.append(td)
-	tr.append(inputTd)
+	tr.append(input)
 	tr.append(resetBtnTd)
 	options.appendChild(tr)
 })
@@ -421,11 +441,16 @@ let entities: Entity[] = []
 /* early declare */
 const randoms = (n: number): number[] => [...window.crypto.getRandomValues(new Uint8Array(n))].map((s) => s / 2 ** 8)
 
+let preyCount = 0
+let predatorCount = 0
+
 function resetEntities() {
 	entities = Array.from({ length: opts.ENTITES_COUNT }, (_, i) => {
 		const rans = randoms(6)
 
-		const type = rans[4] < opts.PREY_PERCENTAGE / 100 ? 'prey' : 'predator'
+		const type = rans[4] < opts.PREY_PERCENTAGE / 100 ? types.prey : types.predator
+
+		type === types.predator ? predatorCount++ : preyCount++
 
 		let entity = new Entity(
 			rans[0] * (WIDTH * 0.9) - WIDTH * 0.45,
@@ -433,11 +458,11 @@ function resetEntities() {
 			rans[2] * 2 * pi,
 			// Math.cos(2 * pi * i / opts.ENTITES_COUNT) * 100, Math.sin(2 * pi * i / opts.ENTITES_COUNT) * 100,
 			// 2 * pi * i / opts.ENTITES_COUNT,
-			rans[3] * 0.7 * opts.ENTITY_ATTACK_MAX + (type === 'predator' ? 0.3 * opts.ENTITY_ATTACK_MAX : 0),
+			rans[3] * 0.7 * opts.ENTITY_ATTACK_MAX + (type === types.predator ? 0.3 * opts.ENTITY_ATTACK_MAX : 0),
 			type
 		)
 
-		if (modeSelection.value === 'leader' && entity.type === 'prey') entity.props.leader = rans[5] > 0.9
+		if (modeSelection.value === 'leader' && entity.type === types.prey) entity.props.leader = rans[5] > 0.9
 
 		return entity
 	})
@@ -484,6 +509,20 @@ pauseBtn.addEventListener('click', (e: MouseEvent & { target: HTMLElement }) => 
 	console.log(renderer.pause ? 'Simulation stopped' : 'Simulation started')
 })
 
+importBtn.addEventListener('click', () => {
+	opts = JSON.parse(settingsTextarea.value)
+	Object.keys(opts).forEach((e) => ((document.getElementById(e) as HTMLInputElement).value = opts[e]))
+	modeSelection.value = opts['mode']
+})
+
+exportBtn.addEventListener('click', () => {
+	settingsTextarea.value = JSON.stringify({ ...opts, mode: modeSelection.value }, null, 2)
+})
+
+resetLogBtn.addEventListener('click', () => {
+	logTextarea.value = '[\n]'
+})
+
 document.addEventListener('visibilitychange', () => {
 	renderer.isRun = !document.hidden
 	console.log(renderer.isRun ? 'Screen is visible' : 'Screen is not visible')
@@ -507,6 +546,21 @@ function update(delta: number) {
 		entity.x = entity.xBuffer
 		entity.y = entity.yBuffer
 	})
+
+	const types = new Set(entities.map((e) => e.type))
+	if (types.size === 1) {
+		const winner = types.values().next().value
+		const data = {
+			prey: preyCount,
+			predator: predatorCount,
+			prey_predator_ratio: preyCount / predatorCount,
+			winner,
+		}
+		logTextarea.value = logTextarea.value.slice(0, -1) + `${JSON.stringify(data, null, 2)},\n]`
+		predatorCount = 0
+		preyCount = 0
+		resetEntities()
+	}
 
 	renderDebug([
 		[mouse, 'mouse'],

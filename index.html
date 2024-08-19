@@ -24,11 +24,25 @@
 			<div id="canvas-container"></div>
 			<div id="debug-wrapper">
 				<table id="options"></table>
+				<br />
 				<select name="mode" id="mode">
 					<option value="default">기본</option>
 					<option value="coop">협력</option>
 					<option value="leader">리더</option>
 				</select>
+				<br />
+				<br />
+				<button id="export">Export</button>
+				<button id="import">Import</button>
+				<br />
+				<textarea rows="5" cols="40" name="settings" id="settings"></textarea>
+				<br />
+				<br />
+				<p>Log <button id="reset-log">reset</button></p>
+				<textarea readonly rows="10" cols="40" name="log" id="log">
+[
+]</textarea
+				>
 				<br />
 				<br />
 				<div>

@@ -2,9 +2,19 @@ const container = document.getElementById('canvas-container');
 const debug = document.getElementById('debug');
 const resetBtn = document.getElementById('reset');
 const pauseBtn = document.getElementById('pause');
+const exportBtn = document.getElementById('export');
+const importBtn = document.getElementById('import');
+const resetLogBtn = document.getElementById('reset-log');
+const settingsTextarea = document.getElementById('settings');
+const logTextarea = document.getElementById('log');
 const options = document.getElementById('options');
 const modeSelection = document.getElementById('mode');
 const pi = Math.PI;
+var types;
+(function (types) {
+    types["prey"] = "prey";
+    types["predator"] = "predator";
+})(types || (types = {}));
 class Renderer {
     constructor(width, height, container) {
         this.width = width;
@@ -76,11 +86,11 @@ class Entity {
         ctx.beginPath();
         ctx.lineWidth = 1.5;
         switch (this.type) {
-            case 'prey': {
+            case types.prey: {
                 ctx.strokeStyle = 'blue';
                 break;
             }
-            case 'predator': {
+            case types.predator: {
                 ctx.strokeStyle = 'red';
                 break;
             }
@@ -103,11 +113,6 @@ class Entity {
         ctx.lineTo(this.x + opts.ENTITY_SIZE * 2 * Math.cos(this.direction), this.y + opts.ENTITY_SIZE * 2 * Math.sin(this.direction));
         ctx.stroke();
         ctx.closePath();
-        // ctx.beginPath()
-        // ctx.strokeStyle = 'powderblue'
-        // ctx.arc(this.x, this.y, opts.ENTITY_RECOGNITION_RANGE, 0, 2 * pi)
-        // ctx.stroke()
-        // ctx.closePath()
         ctx.beginPath();
         ctx.strokeStyle = 'red';
         ctx.moveTo(this.x, this.y);
@@ -119,14 +124,14 @@ class Entity {
         ctx.arc(this.x + this.destRelX, this.y + this.destRelY, 5, 0, 2 * pi);
         ctx.fill();
         ctx.closePath();
-        if (this.type === 'predator' && this.attackCooldown === 0) {
+        if (this.type === types.predator && this.attackCooldown === 0) {
             ctx.beginPath();
             ctx.strokeStyle = 'red';
             ctx.arc(this.x, this.y, opts.ENTITY_SIZE * 1.5, 0, 2 * pi);
             ctx.stroke();
             ctx.closePath();
         }
-        if (this.type === 'prey' && this.props.leader) {
+        if (this.type === types.prey && this.props.leader) {
             ctx.beginPath();
             ctx.strokeStyle = 'cyan';
             ctx.arc(this.x, this.y, opts.ENTITY_SIZE * 1.5, 0, 2 * pi);
@@ -134,14 +139,20 @@ class Entity {
             ctx.closePath();
         }
         ctx.lineWidth = 2;
-        ctx.strokeStyle = 'red';
-        this.highlight &&
+        if (this.highlight) {
+            ctx.strokeStyle = 'red';
             polygon(ctx, [
                 [this.x, this.y + opts.ENTITY_SIZE * 2],
                 [this.x + opts.ENTITY_SIZE * 2, this.y],
                 [this.x, this.y - opts.ENTITY_SIZE * 2],
                 [this.x - opts.ENTITY_SIZE * 2, this.y],
             ], 'stroke');
+            ctx.beginPath();
+            ctx.strokeStyle = 'powderblue';
+            ctx.arc(this.x, this.y, opts.ENTITY_RECOGNITION_RANGE, 0, 2 * pi);
+            ctx.stroke();
+            ctx.closePath();
+        }
         if (this.touch) {
             ctx.beginPath();
             ctx.strokeStyle = 'rgba(255,0,0,0.2)';
@@ -163,20 +174,20 @@ class Entity {
         const nearSameTypeEntities = sameTypeEntities.filter((entity) => d(entity.x, entity.y, this.xBuffer, this.yBuffer) <= opts.ENTITY_RECOGNITION_RANGE);
         const nearDiffTypeEntities = sortedEntities.filter((entity) => d(entity.x, entity.y, this.xBuffer, this.yBuffer) <= opts.ENTITY_RECOGNITION_RANGE && entity.type !== this.type);
         const closestSameTypeEntity = nearSameTypeEntities[0];
-        const closestDiffTypeEntityity = nearDiffTypeEntities[0];
+        const closestDiffTypeEntity = nearDiffTypeEntities[0];
         this.touch = '';
-        if (!!closestDiffTypeEntityity &&
-            Math.pow((closestDiffTypeEntityity.x - this.xBuffer), 2) + Math.pow((closestDiffTypeEntityity.y - this.yBuffer), 2) <= Math.pow((2 * opts.ENTITY_SIZE), 2))
-            this.touch = closestDiffTypeEntityity.uuid;
+        if (!!closestDiffTypeEntity &&
+            Math.pow((closestDiffTypeEntity.x - this.xBuffer), 2) + Math.pow((closestDiffTypeEntity.y - this.yBuffer), 2) <= Math.pow((2 * opts.ENTITY_SIZE), 2))
+            this.touch = closestDiffTypeEntity.uuid;
         // Attack validation
         this.attackCooldown -= delta;
         if (this.attackCooldown < 0)
             this.attackCooldown = 0;
-        if (this.touch && closestDiffTypeEntityity.attackCooldown === 0 && this.type === 'prey') {
-            const attackSuccess = nearSameTypeEntities.reduce((p, c) => p + c.attack, 0) > closestDiffTypeEntityity.attack;
-            closestDiffTypeEntityity.alive = !attackSuccess;
+        if (this.touch && closestDiffTypeEntity.attackCooldown === 0 && this.type === types.prey) {
+            const attackSuccess = nearSameTypeEntities.reduce((p, c) => p + c.attack, 0) > closestDiffTypeEntity.attack;
+            closestDiffTypeEntity.alive = !attackSuccess;
             this.alive = attackSuccess;
-            closestDiffTypeEntityity.attackCooldown = opts.ENTITY_ATTACK_COOLDOWN;
+            closestDiffTypeEntity.attackCooldown = opts.ENTITY_ATTACK_COOLDOWN;
         }
         // Separation
         const { x: sepX, y: sepY } = nearSameTypeEntities.reduce((prev, curr) => {
@@ -208,15 +219,25 @@ class Entity {
         // Custom Rule .1 Targeting
         let target;
         let targetDir;
-        if (modeSelection.value === 'coop' && sameTypeEntities.length > 1 && this.type === 'prey')
+        if (modeSelection.value === 'coop' && sameTypeEntities.length > 1 && this.type === types.prey)
             target = sameTypeEntities[1];
-        if (modeSelection.value === 'leader' && sameTypeEntities.filter((e) => e.props.leader).length > 1 && this.type === 'prey')
+        if (modeSelection.value === 'leader' && sameTypeEntities.filter((e) => e.props.leader).length > 1 && this.type === types.prey)
             target = sameTypeEntities.filter((e) => e.props.leader)[0];
-        if (this.type === 'predator' && diffTypeEntities.length > 0 && this.attackCooldown === 0)
+        if (this.type === types.predator && diffTypeEntities.length > 0 && this.attackCooldown === 0)
             target = diffTypeEntities[0];
         if (target) {
             targetDir = Math.atan2(target.y - this.yBuffer, target.x - this.xBuffer);
             dirBuffer += steer(this.direction, targetDir);
+        }
+        // Custom Rule .2 Avoiding
+        let avoid;
+        let avoidDir;
+        if (this.type === types.prey && diffTypeEntities.length > 0) {
+            avoid = closestDiffTypeEntity;
+        }
+        if (avoid) {
+            avoidDir = Math.atan2(this.yBuffer - avoid.y, this.xBuffer - avoid.x);
+            dirBuffer += steer(this.direction, avoidDir);
         }
         // Apply Steer
         if (nearSameTypeEntities.length > 0)
@@ -250,12 +271,12 @@ const mouse = { x: 0, y: 0, down: false };
 const keyState = {};
 window.addEventListener('keydown', (e) => (keyState[e.code] = true));
 window.addEventListener('keyup', (e) => (keyState[e.code] = false));
-const opts = {
+let opts = {
     ENTITY_SIZE: 7,
     ENTITY_RECOGNITION_RANGE: 50,
     ENTITY_ATTACK_MAX: 100,
     ENTITY_ATTACK_COOLDOWN: 5,
-    PREY_PERCENTAGE: 70,
+    PREY_PERCENTAGE: 80,
     ENTITES_COUNT: 100,
     ENTITY_SPEED: 50,
     SEPARATION_FACTOR: 1,
@@ -267,46 +288,44 @@ Object.keys(opts).forEach((o) => {
     const initialValue = opts[o];
     const tr = document.createElement('tr');
     const td = document.createElement('td');
-    td.innerText = `${o}(${opts[o]})`;
-    const inputTd = document.createElement('td');
+    td.innerText = o;
     const input = document.createElement('input');
-    input.type = 'range';
-    input.setAttribute('max', `${(opts[o] + 1) * 10}`);
-    input.setAttribute('min', '0');
-    input.setAttribute('step', '0.1');
+    input.type = 'number';
+    input.setAttribute('step', '1');
     input.value = opts[o];
     const onChange = (e) => {
         opts[o] = e.target.value;
-        td.innerText = `${o}(${opts[o]})`;
     };
     input.addEventListener('input', onChange);
+    input.id = o;
     const resetBtnTd = document.createElement('td');
     const resetBtn = document.createElement('button');
     resetBtn.addEventListener('click', (e) => {
         input.value = initialValue;
         opts[o] = initialValue;
-        td.innerText = `${o}(${opts[o]})`;
     });
     resetBtn.innerText = 'reset';
     resetBtnTd.append(resetBtn);
-    inputTd.append(input);
     tr.append(td);
-    tr.append(inputTd);
+    tr.append(input);
     tr.append(resetBtnTd);
     options.appendChild(tr);
 });
 let entities = [];
 /* early declare */
 const randoms = (n) => [...window.crypto.getRandomValues(new Uint8Array(n))].map((s) => s / Math.pow(2, 8));
+let preyCount = 0;
+let predatorCount = 0;
 function resetEntities() {
     entities = Array.from({ length: opts.ENTITES_COUNT }, (_, i) => {
         const rans = randoms(6);
-        const type = rans[4] < opts.PREY_PERCENTAGE / 100 ? 'prey' : 'predator';
+        const type = rans[4] < opts.PREY_PERCENTAGE / 100 ? types.prey : types.predator;
+        type === types.predator ? predatorCount++ : preyCount++;
         let entity = new Entity(rans[0] * (WIDTH * 0.9) - WIDTH * 0.45, rans[1] * (HEIGHT * 0.9) - HEIGHT * 0.45, rans[2] * 2 * pi, 
         // Math.cos(2 * pi * i / opts.ENTITES_COUNT) * 100, Math.sin(2 * pi * i / opts.ENTITES_COUNT) * 100,
         // 2 * pi * i / opts.ENTITES_COUNT,
-        rans[3] * 0.7 * opts.ENTITY_ATTACK_MAX + (type === 'predator' ? 0.3 * opts.ENTITY_ATTACK_MAX : 0), type);
-        if (modeSelection.value === 'leader' && entity.type === 'prey')
+        rans[3] * 0.7 * opts.ENTITY_ATTACK_MAX + (type === types.predator ? 0.3 * opts.ENTITY_ATTACK_MAX : 0), type);
+        if (modeSelection.value === 'leader' && entity.type === types.prey)
             entity.props.leader = rans[5] > 0.9;
         return entity;
     });
@@ -347,6 +366,17 @@ pauseBtn.addEventListener('click', (e) => {
     }
     console.log(renderer.pause ? 'Simulation stopped' : 'Simulation started');
 });
+importBtn.addEventListener('click', () => {
+    opts = JSON.parse(settingsTextarea.value);
+    Object.keys(opts).forEach((e) => (document.getElementById(e).value = opts[e]));
+    modeSelection.value = opts['mode'];
+});
+exportBtn.addEventListener('click', () => {
+    settingsTextarea.value = JSON.stringify(Object.assign(Object.assign({}, opts), { mode: modeSelection.value }), null, 2);
+});
+resetLogBtn.addEventListener('click', () => {
+    logTextarea.value = '[\n]';
+});
 document.addEventListener('visibilitychange', () => {
     renderer.isRun = !document.hidden;
     console.log(renderer.isRun ? 'Screen is visible' : 'Screen is not visible');
@@ -368,6 +398,20 @@ function update(delta) {
         entity.x = entity.xBuffer;
         entity.y = entity.yBuffer;
     });
+    const types = new Set(entities.map((e) => e.type));
+    if (types.size === 1) {
+        const winner = types.values().next().value;
+        const data = {
+            prey: preyCount,
+            predator: predatorCount,
+            prey_predator_ratio: preyCount / predatorCount,
+            winner,
+        };
+        logTextarea.value = logTextarea.value.slice(0, -1) + `${JSON.stringify(data, null, 2)},\n]`;
+        predatorCount = 0;
+        preyCount = 0;
+        resetEntities();
+    }
     renderDebug([
         [mouse, 'mouse'],
         [delta, 'delta'],
