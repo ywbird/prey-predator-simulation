@@ -604,6 +604,7 @@ function* presetting(o: string, min: number, max: number, step: number) {
 	useIter = false
 
 	Object.keys(opts).forEach((e) => ((document.getElementById(e) as HTMLInputElement).value = preOpts[e]))
+	pauseBtn.click()
 	yield preOpts
 }
 

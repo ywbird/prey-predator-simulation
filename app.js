@@ -448,6 +448,7 @@ function* presetting(o, min, max, step) {
     }
     useIter = false;
     Object.keys(opts).forEach((e) => (document.getElementById(e).value = preOpts[e]));
+    pauseBtn.click();
     yield preOpts;
 }
 let iter;
