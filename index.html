@@ -5,6 +5,13 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Document</title>
 		<style>
+			html,body {
+				overflow: scroll;
+			}
+			#canvas-container {
+
+				height: 300vh;
+			}
 			#canvas-container > canvas {
 				border: 1px solid black;
 			}
@@ -12,13 +19,14 @@
 				display: flex;
 				flex-direction: row;
 				gap: 1rem;
+				height: fit-content;
 			}
 		</style>
 	</head>
 	<body>
 		<div id="container">
 			<div id="canvas-container"></div>
-			<div id="debug-wrapper">
+			<fieldset id="debug-wrapper">
 				<table id="options"></table>
 				<br />
 				<select name="mode" id="mode">
@@ -39,6 +47,22 @@
 [
 ]</textarea
 				>
+				<br />
+				<br />
+				<fieldset>
+					<legend>반복 설정</legend>
+					<p>반복할 변수 이름</p>
+					<input type="text" id="iter" />
+					<p>반복 범위</p>
+					<table>
+						<tr><td for="iter-min">시작</td><td><input type="number" id="iter-min" /></td></tr>
+						<tr><td for="iter-min">끝</td><td><input type="number" id="iter-max" /></td></tr>
+						<tr><td for="iter-step">스텝</td><td><input type="number" id="iter-step" value="1" /></td></tr>
+						<tr><td for="iter-loop">반복횟수</td><td><input type="number" id="iter-loop" value="1" /></td></tr>
+					</table>
+					<br>
+					<button id="iter-start">반복 시작</button>
+				</fieldset>
 				<br />
 				<br />
 				<div>

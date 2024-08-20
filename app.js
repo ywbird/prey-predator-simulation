@@ -9,6 +9,12 @@ const settingsTextarea = document.getElementById('settings');
 const logTextarea = document.getElementById('log');
 const options = document.getElementById('options');
 const modeSelection = document.getElementById('mode');
+const iterInput = document.getElementById('iter');
+const iterMin = document.getElementById('iter-min');
+const iterMax = document.getElementById('iter-max');
+const iterStep = document.getElementById('iter-step');
+const iterLoop = document.getElementById('iter-loop');
+const iterStartBtn = document.getElementById('iter-start');
 const pi = Math.PI;
 var types;
 (function (types) {
@@ -427,6 +433,32 @@ function draw(ctx, delta, demension) {
         entity.draw(ctx);
     });
 }
+function* presetting(o, min, max, step) {
+    const preOpts = structuredClone(opts);
+    const result = structuredClone(opts);
+    let i = min;
+    while (i <= max) {
+        result[o] = i;
+        console.log(result);
+        Object.keys(opts).forEach((e) => (document.getElementById(e).value = result[e]));
+        i += step;
+        for (let i = 0; i < parseFloat(iterLoop.value); i++) {
+            yield result;
+        }
+    }
+    useIter = false;
+    Object.keys(opts).forEach((e) => (document.getElementById(e).value = preOpts[e]));
+    yield preOpts;
+}
+let iter;
+let useIter = false;
+iterStartBtn.addEventListener('click', () => {
+    iter = presetting(iterInput.value, parseFloat(iterMin.value), parseFloat(iterMax.value), parseFloat(iterStep.value));
+    logTextarea.value = '[\n]';
+    useIter = true;
+    opts = iter.next().value;
+    resetEntities();
+});
 function update(delta) {
     entities = entities.filter((entity) => entity.alive);
     entities.forEach((entity) => entity.move(delta * opts.SIMULATION_ACCELERATION));
@@ -450,6 +482,9 @@ function update(delta) {
         preyCount = 0;
         time = 0;
         resetEntities();
+        if (useIter) {
+            opts = iter.next().value;
+        }
     }
     time += delta * opts.SIMULATION_ACCELERATION;
     renderDebug([

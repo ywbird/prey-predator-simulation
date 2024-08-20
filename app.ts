@@ -10,6 +10,13 @@ const logTextarea = document.getElementById('log') as HTMLTextAreaElement
 const options = document.getElementById('options')
 const modeSelection = document.getElementById('mode') as HTMLSelectElement
 
+const iterInput = document.getElementById('iter') as HTMLInputElement
+const iterMin = document.getElementById('iter-min') as HTMLInputElement
+const iterMax = document.getElementById('iter-max') as HTMLInputElement
+const iterStep = document.getElementById('iter-step') as HTMLInputElement
+const iterLoop = document.getElementById('iter-loop') as HTMLInputElement
+const iterStartBtn = document.getElementById('iter-start')
+
 const pi = Math.PI
 
 enum types {
@@ -577,6 +584,38 @@ function draw(ctx: CanvasRenderingContext2D, delta: number, demension: { width: 
 	})
 }
 
+function* presetting(o: string, min: number, max: number, step: number) {
+	const preOpts = structuredClone(opts)
+
+	const result = structuredClone(opts)
+	let i = min
+	while (i <= max) {
+		result[o] = i
+		console.log(result)
+		Object.keys(opts).forEach((e) => ((document.getElementById(e) as HTMLInputElement).value = result[e]))
+		i += step
+		for (let i = 0; i < parseFloat(iterLoop.value); i++) {
+			yield result
+		}
+	}
+
+	useIter = false
+
+	Object.keys(opts).forEach((e) => ((document.getElementById(e) as HTMLInputElement).value = preOpts[e]))
+	yield preOpts
+}
+
+let iter
+let useIter = false
+
+iterStartBtn.addEventListener('click', () => {
+	iter = presetting(iterInput.value, parseFloat(iterMin.value), parseFloat(iterMax.value), parseFloat(iterStep.value))
+	logTextarea.value = '[\n]'
+	useIter = true
+	opts = iter.next().value
+	resetEntities()
+})
+
 function update(delta: number) {
 	entities = entities.filter((entity) => entity.alive)
 	entities.forEach((entity) => entity.move(delta * opts.SIMULATION_ACCELERATION))
@@ -601,6 +640,9 @@ function update(delta: number) {
 		preyCount = 0
 		time = 0
 		resetEntities()
+		if (useIter) {
+			opts = iter.next().value
+		}
 	}
 
 	time += delta * opts.SIMULATION_ACCELERATION
