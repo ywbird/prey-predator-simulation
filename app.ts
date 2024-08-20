@@ -222,7 +222,7 @@ class Entity {
 			)
 			ctx.beginPath()
 			ctx.strokeStyle = 'powderblue'
-			ctx.arc(this.x, this.y, opts.ENTITY_RECOGNITION_RANGE, 0, 2 * pi)
+			ctx.arc(this.x, this.y, opts.ENTITY_RECOGNITION_RANGE * opts.ENTITY_SIZE, 0, 2 * pi)
 			ctx.stroke()
 			ctx.closePath()
 		}
@@ -251,10 +251,12 @@ class Entity {
 		const sameTypeEntities = sortedEntities.filter((entity) => entity.type === this.type)
 		const diffTypeEntities = sortedEntities.filter((entity) => entity.type !== this.type)
 
-		const nearSameTypeEntities = sameTypeEntities.filter((entity) => d(entity.x, entity.y, this.xBuffer, this.yBuffer) <= opts.ENTITY_RECOGNITION_RANGE)
+		const nearSameTypeEntities = sameTypeEntities.filter(
+			(entity) => d(entity.x, entity.y, this.xBuffer, this.yBuffer) <= opts.ENTITY_RECOGNITION_RANGE * opts.ENTITY_SIZE
+		)
 
 		const nearDiffTypeEntities = sortedEntities.filter(
-			(entity) => d(entity.x, entity.y, this.xBuffer, this.yBuffer) <= opts.ENTITY_RECOGNITION_RANGE && entity.type !== this.type
+			(entity) => d(entity.x, entity.y, this.xBuffer, this.yBuffer) <= opts.ENTITY_RECOGNITION_RANGE * opts.ENTITY_SIZE && entity.type !== this.type
 		)
 
 		const closestSameTypeEntity = nearSameTypeEntities[0]
@@ -440,7 +442,7 @@ window.addEventListener('keyup', (e) => (keyState[e.code] = false))
 
 let opts = {
 	ENTITY_SIZE: 7,
-	ENTITY_RECOGNITION_RANGE: 50,
+	ENTITY_RECOGNITION_RANGE: 7,
 	ENTITY_ATTACK_MAX: 100,
 	ENTITY_ATTACK_COOLDOWN: 5,
 	PREY_PERCENTAGE: 80,
