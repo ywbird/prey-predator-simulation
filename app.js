@@ -185,37 +185,52 @@ class Entity {
             this.attackCooldown = 0;
         if (this.touch && closestDiffTypeEntity.attackCooldown === 0 && this.type === types.prey) {
             const attackSuccess = nearSameTypeEntities.reduce((p, c) => p + c.attack, 0) > closestDiffTypeEntity.attack;
-            closestDiffTypeEntity.alive = !attackSuccess;
-            this.alive = attackSuccess;
-            closestDiffTypeEntity.attackCooldown = opts.ENTITY_ATTACK_COOLDOWN;
+            if (!attackSuccess && closestDiffTypeEntity.attackCooldown === 0) {
+                this.alive = false;
+                closestDiffTypeEntity.alive = true;
+                closestDiffTypeEntity.attackCooldown = opts.ENTITY_ATTACK_COOLDOWN;
+            }
+            else if (attackSuccess) {
+                this.alive = true;
+                closestDiffTypeEntity.alive = false;
+            }
         }
         // Separation
-        const { x: sepX, y: sepY } = nearSameTypeEntities.reduce((prev, curr) => {
-            const scaleFactor = (opts.ENTITY_RECOGNITION_RANGE / d(this.xBuffer, this.yBuffer, curr.x, curr.y)) * 0.5;
-            return {
-                x: prev.x + (this.xBuffer - curr.x) * scaleFactor,
-                y: prev.y + (this.yBuffer - curr.y) * scaleFactor,
-            };
-        }, { x: 0, y: 0 });
-        // this.destRelX = sepX
-        // this.destRelY = sepY
-        const sepDir = Math.atan2(sepY, sepX);
+        let sepDir = 0;
+        if (nearSameTypeEntities.length) {
+            const { x: sepX, y: sepY } = nearSameTypeEntities.reduce((prev, curr) => {
+                const scaleFactor = (opts.ENTITY_RECOGNITION_RANGE / d(this.xBuffer, this.yBuffer, curr.x, curr.y)) * 0.5;
+                return {
+                    x: prev.x + (this.xBuffer - curr.x) * scaleFactor,
+                    y: prev.y + (this.yBuffer - curr.y) * scaleFactor,
+                };
+            }, { x: 0, y: 0 });
+            // this.destRelX = sepX
+            // this.destRelY = sepY
+            sepDir = Math.atan2(sepY, sepX);
+        }
         // Alignment
-        const { x: alignX, y: alignY } = nearSameTypeEntities.reduce((prev, curr) => {
-            return {
-                x: prev.x + Math.cos(curr.direction),
-                y: prev.y + Math.sin(curr.direction),
-            };
-        }, { x: 0, y: 0 });
-        const alignDir = Math.atan2(alignY, alignX);
+        let alignDir = 0;
+        if (nearSameTypeEntities.length) {
+            const { x: alignX, y: alignY } = nearSameTypeEntities.reduce((prev, curr) => {
+                return {
+                    x: prev.x + Math.cos(curr.direction),
+                    y: prev.y + Math.sin(curr.direction),
+                };
+            }, { x: 0, y: 0 });
+            alignDir = Math.atan2(alignY, alignX);
+        }
         // Cohesion
-        const { x: cohX, y: cohY } = nearSameTypeEntities.reduce((prev, curr) => {
-            return {
-                x: prev.x + curr.x,
-                y: prev.y + curr.y,
-            };
-        }, { x: 0, y: 0 });
-        const cohDir = Math.atan2(cohY / nearSameTypeEntities.length - this.yBuffer, cohX / nearSameTypeEntities.length - this.xBuffer);
+        let cohDir = 0;
+        if (nearSameTypeEntities.length) {
+            const { x: cohX, y: cohY } = nearSameTypeEntities.reduce((prev, curr) => {
+                return {
+                    x: prev.x + curr.x,
+                    y: prev.y + curr.y,
+                };
+            }, { x: 0, y: 0 });
+            cohDir = Math.atan2(cohY / nearSameTypeEntities.length - this.yBuffer, cohX / nearSameTypeEntities.length - this.xBuffer);
+        }
         // Custom Rule .1 Targeting
         let target;
         let targetDir;
@@ -239,23 +254,43 @@ class Entity {
             avoidDir = Math.atan2(this.yBuffer - avoid.y, this.xBuffer - avoid.x);
             dirBuffer += steer(this.direction, avoidDir);
         }
+        // Custom Rule .3 Stay away from wall
+        let wall;
+        if (this.xBuffer > WIDTH / 2 - opts.ENTITY_SIZE * 3)
+            wall = new Entity(0, this.y, 0, 0, types.predator);
+        if (this.xBuffer < -WIDTH / 2 + opts.ENTITY_SIZE * 3)
+            wall = new Entity(0, this.y, 0, 0, types.predator);
+        if (this.yBuffer > HEIGHT / 2 - opts.ENTITY_SIZE * 3)
+            wall = new Entity(this.x, 0, 0, 0, types.predator);
+        if (this.yBuffer < -HEIGHT / 2 + opts.ENTITY_SIZE * 3)
+            wall = new Entity(this.x, 0, 0, 0, types.predator);
+        if (wall) {
+            const avoidWallDir = Math.atan2(this.yBuffer - wall.y, this.xBuffer - wall.x);
+            dirBuffer += steer(this.direction, avoidWallDir);
+        }
         // Apply Steer
-        if (nearSameTypeEntities.length > 0)
+        if (nearSameTypeEntities.length)
             dirBuffer +=
                 steer(this.direction, sepDir) * opts.SEPARATION_FACTOR +
                     steer(this.direction, alignDir) * opts.ALIGNMENT_FACTOR +
                     steer(this.direction, cohDir) * opts.COHESION_FACTOR;
         this.direction += dirBuffer * delta;
         // Wall bounce
-        if (this.x + opts.ENTITY_SIZE >= WIDTH / 2 || this.x - opts.ENTITY_SIZE <= -WIDTH / 2) {
-            this.xBuffer = this.xBuffer - opts.ENTITY_SPEED * 1.2 * Math.cos(this.direction) * delta;
-            this.yBuffer = this.yBuffer - opts.ENTITY_SPEED * 1.2 * Math.sin(this.direction) * delta;
+        if (this.xBuffer > WIDTH / 2 - opts.ENTITY_SIZE) {
             this.direction = (pi - this.direction).mod(2 * pi);
+            this.xBuffer = WIDTH / 2 - opts.ENTITY_SIZE;
         }
-        if (this.y + opts.ENTITY_SIZE >= HEIGHT / 2 || this.y - opts.ENTITY_SIZE <= -HEIGHT / 2) {
-            this.xBuffer = this.xBuffer - opts.ENTITY_SPEED * Math.cos(this.direction) * delta;
-            this.yBuffer = this.yBuffer - opts.ENTITY_SPEED * Math.sin(this.direction) * delta;
+        if (this.xBuffer < -WIDTH / 2 + opts.ENTITY_SIZE) {
+            this.direction = (pi - this.direction).mod(2 * pi);
+            this.xBuffer = -WIDTH / 2 + opts.ENTITY_SIZE;
+        }
+        if (this.yBuffer > HEIGHT / 2 - opts.ENTITY_SIZE) {
             this.direction = (2 * pi - this.direction).mod(2 * pi);
+            this.yBuffer = HEIGHT / 2 - opts.ENTITY_SIZE;
+        }
+        if (this.yBuffer < -HEIGHT / 2 + opts.ENTITY_SIZE) {
+            this.direction = (2 * pi - this.direction).mod(2 * pi);
+            this.yBuffer = -HEIGHT / 2 + opts.ENTITY_SIZE;
         }
         // Advance
         this.direction = this.direction.mod(2 * pi);
@@ -266,7 +301,7 @@ class Entity {
     }
 }
 const [WIDTH, HEIGHT] = [1000, 1000];
-const renderer = new Renderer(1000, 1000, container);
+const renderer = new Renderer(WIDTH, HEIGHT, container);
 const mouse = { x: 0, y: 0, down: false };
 const keyState = {};
 window.addEventListener('keydown', (e) => (keyState[e.code] = true));
@@ -316,6 +351,7 @@ let entities = [];
 const randoms = (n) => [...window.crypto.getRandomValues(new Uint8Array(n))].map((s) => s / Math.pow(2, 8));
 let preyCount = 0;
 let predatorCount = 0;
+let time = 0;
 function resetEntities() {
     entities = Array.from({ length: opts.ENTITES_COUNT }, (_, i) => {
         const rans = randoms(6);
@@ -405,16 +441,21 @@ function update(delta) {
             prey: preyCount,
             predator: predatorCount,
             prey_predator_ratio: preyCount / predatorCount,
+            time_take: Math.floor(time * 1000) / 1000,
+            settings: Object.assign(Object.assign({}, opts), { mode: modeSelection.value }),
             winner,
         };
         logTextarea.value = logTextarea.value.slice(0, -1) + `${JSON.stringify(data, null, 2)},\n]`;
         predatorCount = 0;
         preyCount = 0;
+        time = 0;
         resetEntities();
     }
+    time += delta * opts.SIMULATION_ACCELERATION;
     renderDebug([
         [mouse, 'mouse'],
         [delta, 'delta'],
+        [Math.floor(time * 1000) / 1000, 'time'],
         [entities.filter((e) => e.highlight), 'highlighted entity'],
     ]);
 }
