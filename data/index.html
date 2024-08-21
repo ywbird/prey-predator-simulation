@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="const">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Document</title>
+		<style>
+			#container {
+				display: flex;
+				flex-direction: row;
+
+				gap: 1rem;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="container">
+			<section>
+				<p>Input(JSON)</p>
+				<textarea name="" rows="30" cols="50" id="input"></textarea>
+				<br />
+				<label for="var">변수 이름</label> <input type="text" id="var" />
+				<br />
+				<br />
+				<button id="process" disabled>Process</button><small>에러나면 텍스트 마지막에서 두번째 줄 ',(콤마)' 제거</small>
+			</section>
+			<section>
+				<p>Output(CSV)</p>
+				<textarea name="" rows="30" cols="50" id="output" readonly placeholder="Output as CSV"></textarea>
+				<button id="download">Download</button>
+			</section>
+		</div>
+		<script src="./data/app.js"></script>
+	</body>
+</html>
