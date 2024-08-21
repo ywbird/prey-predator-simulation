@@ -12,7 +12,7 @@ processBtn.addEventListener('click', () => {
         const data = JSON.parse(inTextarea.value);
         outTextArea.value = [
             `${varInput.value}, winner, time, prey_predator_ratio`,
-            ...data.map((d) => `${d.settings[varInput.value]}, ${d.winner === types.prey ? 1 : 2}, ${d.time_take}, ${d.prey_predator_ratio}`),
+            ...data.map((d) => `${d.settings[varInput.value]}, ${d.winner === 'prey' ? 1 : 2}, ${d.time_take}, ${d.prey_predator_ratio}`),
         ].join(`\n`);
     }
     catch (e) {
