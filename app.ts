@@ -638,7 +638,7 @@ function update(delta: number) {
 			settings: { ...opts, mode: modeSelection.value },
 			winner,
 		}
-		logTextarea.value = logTextarea.value.slice(0, -1) + `${JSON.stringify(data, null, 2)},\n]`
+		logTextarea.value = logTextarea.value.slice(0, -1) + `${logTextarea.value === '[\n]' ? ',' : ''}\n${JSON.stringify(data, null, 2)}]`
 		predatorCount = 0
 		preyCount = 0
 		time = 0
