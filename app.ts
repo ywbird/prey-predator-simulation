@@ -350,7 +350,7 @@ class Entity {
 		let target: Entity | null
 		let targetDir: number
 		if (modeSelection.value === 'coop' && sameTypeEntities.length > 1 && this.type === types.prey) target = sameTypeEntities[1]
-		if (modeSelection.value === 'leader' && sameTypeEntities.filter((e) => e.props.leader).length > 1 && this.type === types.prey)
+		if (modeSelection.value === 'leader' && !this.props.leader && sameTypeEntities.filter((e) => e.props.leader).length > 1 && this.type === types.prey)
 			target = sameTypeEntities.filter((e) => e.props.leader)[0]
 
 		if (this.type === types.predator && diffTypeEntities.length > 0 && this.attackCooldown === 0) target = diffTypeEntities[0]
