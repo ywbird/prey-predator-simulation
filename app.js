@@ -478,7 +478,7 @@ function update(delta) {
             settings: Object.assign(Object.assign({}, opts), { mode: modeSelection.value }),
             winner,
         };
-        logTextarea.value = logTextarea.value.slice(0, -1) + `${logTextarea.value === '[\n]' ? ',' : ''}\n${JSON.stringify(data, null, 2)}]`;
+        logTextarea.value = logTextarea.value.slice(0, -1) + `${logTextarea.value === '[\n]' ? '' : '?'}\n${JSON.stringify(data, null, 2)}]`;
         predatorCount = 0;
         preyCount = 0;
         time = 0;
